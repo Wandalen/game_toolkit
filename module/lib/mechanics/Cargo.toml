@@ -1,0 +1,20 @@
+[package]
+name = "game_mechanics"
+version = "0.1.0"
+edition = "2021"
+authors = [
+  "Kostiantyn Wandalen <wandalen@obox.systems>",
+]
+license = "MIT"
+readme = "Readme.md"
+documentation = "https://docs.rs/game_toolkit"
+repository = "https://github.com/Wandalen/game_toolkit/tree/master/module/lib/game_toolkit"
+homepage = "https://github.com/Wandalen/game_toolkit/tree/master/module/lib/game_toolkit"
+description = """
+Experimenting with CG and Physics
+"""
+
+[dependencies]
+
+game_math = { workspace = true }
+game_physics = { workspace = true }

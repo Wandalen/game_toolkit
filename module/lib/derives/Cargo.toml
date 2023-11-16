@@ -1,0 +1,18 @@
+[package]
+name = "derives"
+version = "0.1.0"
+edition = "2021"
+
+[lib]
+proc-macro = true
+
+[dev-dependencies]
+
+diagnostics_tools = { workspace = true }
+
+# impls_index = { workspace = true }
+
+[dependencies]
+
+proc_macro_tools = { workspace = true }
+derive_more = "0.99.17"

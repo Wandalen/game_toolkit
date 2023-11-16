@@ -1,0 +1,15 @@
+[package]
+name = "game_terminal_helper"
+version = "0.1.0"
+edition = "2021"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+
+ansi_colours = { workspace = true }
+crossterm = { workspace = true }
+image = { workspace = true }
+termcolor = { workspace = true }
+
+game_tookit = { workspace = true }

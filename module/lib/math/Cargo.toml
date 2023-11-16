@@ -1,0 +1,26 @@
+[package]
+name = "game_math"
+version = "0.1.0"
+edition = "2021"
+authors = [
+  "Kostiantyn Wandalen <wandalen@obox.systems>",
+]
+license = "MIT"
+readme = "Readme.md"
+documentation = "https://docs.rs/game_math"
+repository = "https://github.com/Wandalen/game_math/tree/master/module/lib/game_math"
+homepage = "https://github.com/Wandalen/game_math/tree/master/module/lib/game_math"
+description = """
+Experimenting with math
+"""
+
+[dependencies]
+
+rand = { workspace = true }
+sealed = { workspace = true }
+bevy_math = { workspace = true }
+
+[dev-dependencies]
+
+diagnostics_tools = { workspace = true }
+impls_index = { workspace = true }

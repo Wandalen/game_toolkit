@@ -1,0 +1,153 @@
+[package]
+name = "game_tookit"
+version = "0.1.0"
+edition = "2021"
+authors = [
+  "Kostiantyn Wandalen <wandalen@obox.systems>",
+]
+license = "MIT"
+readme = "Readme.md"
+documentation = "https://docs.rs/game_toolkit"
+repository = "https://github.com/Wandalen/game_math/tree/master/module/lib/game_toolkit"
+homepage = "https://github.com/Wandalen/game_math/tree/master/module/lib/game_toolkit"
+description = """
+Experimenting with CG and physics
+"""
+
+[features]
+
+default = [
+  "generic_default",
+  "bevy_default",
+]
+
+generic_default = [
+  "generic",
+  "generic_dyn_error",
+  "generic_map_of_vectors",
+  "generic_path_of_workspace",
+  "generic_runnable",
+]
+
+bevy_default = [
+
+  "bevy",
+
+  "bevy_plugin_al",
+  "bevy_plugin_assets_watch",
+  "bevy_plugin_default",
+  "bevy_plugin_dpad_control",
+  "bevy_plugin_escape",
+  "bevy_plugin_fps",
+  "bevy_plugin_mouse_watch",
+
+  "bevy_animation",
+  "bevy_asset",
+  "bevy_audio",
+  "bevy_gilrs",
+  "bevy_scene",
+  "bevy_winit",
+  "bevy_core_pipeline",
+  "bevy_pbr",
+  "bevy_gltf",
+  "bevy_render",
+  "bevy_sprite",
+  "bevy_text",
+  "bevy_ui",
+  "bevy_multi_threaded",
+  "bevy_png",
+  "bevy_hdr",
+  "bevy_ktx2",
+  "bevy_zstd",
+  "bevy_vorbis",
+  "bevy_x11",
+  "bevy_filesystem_watcher",
+  "bevy_gizmos",
+  "bevy_android_shared_stdcxx",
+  "bevy_tonemapping_luts",
+  "bevy_default_font",
+  # "bevy_webgl2",
+  # "bevy_dynamic_plugin",
+
+]
+
+full = [
+  "default",
+  "bevy_full",
+  "generic_full",
+]
+
+generic_full = [
+  "generic_default"
+]
+
+bevy_full = [
+
+  "bevy_default",
+
+]
+
+# bevy = [
+#   "bevy"
+# ]
+
+# xxx : redo
+generic = [
+  "serde_json",
+  "rand",
+]
+
+bevy_plugin_al = [ "bevy", "bevy_asset", "bevy_render", "bevy_sprite" ]
+bevy_plugin_assets_watch = [ "bevy" ]
+bevy_plugin_default = [ "bevy", "generic_path_of_workspace" ]
+bevy_plugin_dpad_control = [ "bevy", "leafwing-input-manager" ]
+bevy_plugin_escape = [ "bevy" ]
+bevy_plugin_fps = [ "bevy", "bevy_screen_diagnostics" ]
+bevy_plugin_mouse_watch = [ "bevy" ]
+
+bevy_animation = [ "bevy", "bevy/animation" ]
+bevy_asset = [ "bevy", "bevy/bevy_asset" ]
+bevy_audio = [ "bevy", "bevy/bevy_audio" ]
+bevy_gilrs = [ "bevy", "bevy/bevy_gilrs" ]
+bevy_scene = [ "bevy", "bevy/bevy_scene", "bevy_asset" ]
+bevy_winit = [ "bevy", "bevy/bevy_winit" ]
+bevy_core_pipeline = [ "bevy", "bevy/bevy_core_pipeline", "bevy_asset", "bevy_render" ]
+bevy_pbr = [ "bevy", "bevy/bevy_pbr", "bevy_asset", "bevy_render", "bevy_core_pipeline" ]
+bevy_gltf = [ "bevy", "bevy/bevy_gltf", "bevy_asset", "bevy_scene", "bevy_pbr" ]
+bevy_render = [ "bevy", "bevy/bevy_render" ]
+bevy_sprite = [ "bevy", "bevy/bevy_sprite", "bevy_render", "bevy_core_pipeline" ]
+bevy_text = [ "bevy", "bevy/bevy_text", "bevy_asset", "bevy_sprite" ]
+bevy_ui = [ "bevy", "bevy/bevy_ui", "bevy_core_pipeline", "bevy_text", "bevy_sprite" ]
+bevy_multi_threaded = [ "bevy", "bevy/multi-threaded" ]
+bevy_png = [ "bevy", "bevy/png" ]
+bevy_hdr = [ "bevy", "bevy/hdr" ]
+bevy_ktx2 = [ "bevy", "bevy/ktx2" ]
+bevy_zstd = [ "bevy", "bevy/zstd" ]
+bevy_vorbis = [ "bevy", "bevy/vorbis" ]
+bevy_x11 = [ "bevy", "bevy/x11" ]
+bevy_filesystem_watcher = [ "bevy", "bevy/filesystem_watcher" ]
+bevy_gizmos = [ "bevy", "bevy/bevy_gizmos" ]
+bevy_android_shared_stdcxx = [ "bevy", "bevy/android_shared_stdcxx" ]
+bevy_tonemapping_luts = [ "bevy", "bevy/tonemapping_luts" ]
+bevy_default_font = [ "bevy", "bevy/default_font" ]
+bevy_webgl2 = [ "bevy", "bevy/webgl2" ]
+bevy_dynamic_plugin = [ "bevy", "bevy/bevy_dynamic_plugin" ]
+
+generic_dyn_error = [ "generic" ]
+generic_map_of_vectors = [ "generic" ]
+generic_path_of_workspace = [ "generic" ]
+generic_runnable = [ "generic", "generic_dyn_error" ]
+
+[dependencies]
+
+sealed = { workspace = true }
+
+bevy = { workspace = true, optional = true }
+rand = { workspace = true, optional = true }
+serde_json = { version = "1.0.107", optional = true }
+bevy_screen_diagnostics = { version = "0.3.0", optional = true }
+leafwing-input-manager = { version = "0.10.0", optional = true }
+
+[[example]]
+name = "map_of_vectors"
+path = "src/generic/map_of_vectors.rs"

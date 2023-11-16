@@ -1,0 +1,13 @@
+[package]
+name = "app"
+version = "0.1.0"
+edition = "2021"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+
+app_bevy = { workspace = true }
+# app_bevy_terminal = { workspace = true }
+app_fyrox = { workspace = true }
+# app_terminal = { workspace = true }
