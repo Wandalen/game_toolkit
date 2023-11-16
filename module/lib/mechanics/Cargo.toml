@@ -6,7 +6,7 @@ authors = [
   "Kostiantyn Wandalen <wandalen@obox.systems>",
 ]
 license = "MIT"
-readme = "Readme.md"
+readme = "readme.md"
 documentation = "https://docs.rs/game_toolkit"
 repository = "https://github.com/Wandalen/game_toolkit/tree/master/module/lib/game_toolkit"
 homepage = "https://github.com/Wandalen/game_toolkit/tree/master/module/lib/game_toolkit"
