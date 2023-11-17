@@ -76,30 +76,26 @@ pub struct AssetLoadQueueEmptyEvent;
 pub struct AssetLoadRequestsAddedEvent;
 
 ///
-/// Extend standard asset server adding extra logic to track progress.
+/// Extends standard asset server adding extra logic to track progress.
 ///
-pub trait AssetServerExt
+#[derive(SystemParam)]
+pub struct TrackedAssetServer<'w>
 {
-  /// Load image and store it into storage of loading processes to track and handle error if any.
-  fn load_tracked< 'a, T : Asset, P : Into< AssetPath<'a> > >
-  (
-    &self,
-    events : &'_ mut EventWriter< StartAssetLoadEvent >,
-    path : P,
-  ) -> Handle< T >;
+    asset_server : Res< 'w, AssetServer >,
+    ev_asset_track : EventWriter< 'w, StartAssetLoadEvent >,
 }
 
-impl AssetServerExt for AssetServer
-{
-  fn load_tracked< 'a, T : Asset, P : Into< AssetPath<'a> > >
-  (
-    &self,
-    events : &'_ mut EventWriter< StartAssetLoadEvent >,
-    path : P,
-  ) -> Handle< T >
+impl<'w> TrackedAssetServer<'w> {
+  pub fn asset_server( &self ) -> &AssetServer
   {
-    let asset = self.load( path );
-    events.send( StartAssetLoadEvent( asset.clone_untyped() ) );
+    &self.asset_server
+  }
+
+  pub fn load_tracked< 'a, T : Asset, P : Into< AssetPath<'a> > >( &mut self, path : P ) -> Handle< T >
+  {
+    let asset = self.asset_server.load( path );
+    self.ev_asset_track
+      .send( StartAssetLoadEvent( asset.clone_untyped() ) );
     asset
   }
 }
