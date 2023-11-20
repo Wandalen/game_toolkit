@@ -168,3 +168,143 @@ impl AssetLoadingQueue
     }
   }
 }
+
+#[cfg( test )]
+mod tests {
+  use bevy::prelude::*;
+  use bevy::app::AppExit;
+  use bevy::log::LogPlugin;
+
+  #[derive( Resource )]
+  struct Timeout(std::time::Duration);
+
+  #[derive( Copy, Event )]
+  enum WaitTimeEnded
+  {
+    Timeout,
+    EmptyQueue,
+  }
+
+  fn wait_for_load_with_timeout
+  (
+    time : Res< Time >,
+    timeout : Res< Timeout >,
+    mut ev_queue_empty : EventReader< super::AssetLoadQueueEmptyEvent >,
+    mut ev_end_waiting : EventWriter< WaitTimeEnded >,
+  )
+  {
+    if time.startup().elapsed() > timeout.0
+    {
+      ev_end_waiting.send( WaitTimeEnded::Timeout );
+    }
+
+    if let Some(_) = ev_queue_empty.iter().next()
+    {
+      ev_end_waiting.send( WaitTimeEnded::EmptyQueue );
+    }
+  }
+
+  #[derive( Debug, Default, Resource )]
+  struct Results
+  {
+    start : usize,
+    finish : usize,
+    fail : usize,
+    queue_empty : usize,
+    new_requests : usize,
+  }
+
+  #[derive( Resource )]
+  struct ExpectedResults
+  {
+    start : usize,
+    finish : usize,
+    fail : usize,
+    new_requests : usize,
+  }
+
+  fn count_events
+  (
+    mut results : ResMut< Results >,
+    expected_results : ResMut< ExpectedResults >,
+
+    mut ev_start_load : EventReader< super::StartAssetLoadEvent >,
+    mut ev_finish_load : EventReader< super::FinishAssetLoadEvent >,
+    mut ev_fail_load : EventReader< super::FailedAssetLoadEvent >,
+    mut ev_queue_empty : EventReader< super::AssetLoadQueueEmptyEvent >,
+    mut ev_new_reguests : EventReader< super::AssetLoadRequestsAddedEvent >,
+
+    ev_end_waiting : EventReader< WaitTimeEnded >,
+
+    mut ev_exit : EventWriter< AppExit >,
+  )
+  {
+    results.start += ev_start_load.iter().count();
+    results.finish += ev_finish_load.iter().count();
+    results.fail += ev_fail_load.iter().count();
+    results.queue_empty += ev_queue_empty.iter().count();
+    results.new_requests += ev_new_reguests.iter().count();
+
+    // println!("{results:?}");
+
+    if !ev_end_waiting.is_empty()
+    {
+      assert!(results.start == expected_results.start);
+      assert!(results.finish == expected_results.finish);
+      assert!(results.fail == expected_results.fail);
+      assert!(results.new_requests == expected_results.new_requests);
+
+      ev_exit.send( AppExit );
+    }
+  }
+
+  fn startup( mut asset_server : super::TrackedAssetServer )
+  {
+    asset_server.load_tracked::< Image, _ >( "fire_01.png" );
+    asset_server.load_tracked::< Image, _ >( "fire_02.png" );
+    asset_server.load_tracked::< Image, _ >( "fire_sprite_atlas.png" );
+  }
+
+  #[test]
+  fn count_produced_events()
+  {
+    let mut app = App::new();
+
+    app.add_plugins( MinimalPlugins )
+       .add_plugins( LogPlugin::default() )
+       .add_plugins( AssetPlugin::default() )
+       .add_plugins( ImagePlugin::default() )
+       .add_plugins( super::TrackedAssetLoadingPlugin );
+
+    app.add_event::< WaitTimeEnded >();
+
+    app.init_resource::< Time >()
+       .init_resource::< Results >()
+       .insert_resource( Timeout( std::time::Duration::from_secs_f32( 10.0 ) ) )
+       .insert_resource(
+          ExpectedResults
+          {
+            start : 3,
+            finish : 3,
+            fail : 0,
+            new_requests : 1,
+          }
+        );
+
+    app.add_systems( Startup, startup );
+    app.add_systems(
+      Update,
+      (
+        wait_for_load_with_timeout,
+        count_events.after(wait_for_load_with_timeout),
+      ),
+    );
+
+    app.run();
+
+    loop {}
+    // loop {
+    //     app.update();
+    // }
+  }
+}
