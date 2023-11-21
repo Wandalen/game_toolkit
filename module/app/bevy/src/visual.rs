@@ -11,7 +11,7 @@ use bevy::asset::Asset;
 use bevy::ecs::system::EntityCommands;
 
 use physics::{ MovableComponent, NpcComponent, PlayerComponent, CameraFocusComponent, PlaygroundResource };
-use assets::{ AssetImageExt, AssetImageEvent };
+use assets::{ AssetImageExt };
 use mechanics::{ AssetImage, Pawn };
 
 /// Generic phases for animation.
@@ -84,14 +84,13 @@ impl MovableComponent
   (
     self,
     commands : &'a mut Commands< 'w, 's >,
-    asset_image_events : &'_ mut EventWriter< '_, AssetImageEvent >,
     // images : &'_ mut ResMut< '_, '_, Assets< Image > >,
-    asset_server : Res< '_, AssetServer >,
+    mut asset_server : &mut TrackedAssetServer <'_>,
     // loading : &'_ mut ResMut< '_, AssetLoadingResource >,
     // mut server : AssetServerExt,
   ) -> EntityCommands< 'w, 's, 'a >
   {
-    let texture = AssetImage::Pawn( Pawn::Npc ).load( asset_image_events, asset_server );
+    let texture = AssetImage::Pawn( Pawn::Npc ).load( asset_server );
     let mut r = self.visual_pawn( commands );
     r.insert( ( NpcComponent, texture ) );
     r
@@ -102,16 +101,16 @@ impl MovableComponent
   (
     self,
     commands : &'a mut Commands< 'w, 's >,
-    asset_image_events : &'_ mut EventWriter< '_, AssetImageEvent >,
+    // asset_image_events : &'_ mut EventWriter< '_, AssetImageEvent >,
     // images : &'_ mut ResMut< '_, '_, Assets< Image > >,
     // mut server : AssetServerExt,
-    asset_server : Res< '_, AssetServer >,
+    mut asset_server : TrackedAssetServer <'_>,
     // loading : &'_ mut ResMut< '_, AssetLoadingResource >,
     // xxx : use
     // loading : ResMut< '_, AssetLoadingResource >,
   ) -> EntityCommands< 'w, 's, 'a >
   {
-    let texture = AssetImage::Pawn( Pawn::Player ).load( asset_image_events, asset_server );
+    let texture = AssetImage::Pawn( Pawn::Player ).load( &mut asset_server );
     let mut r = self.visual_pawn( commands );
     r.insert( ( PlayerComponent, CameraFocusComponent, texture ) );
     r
@@ -177,9 +176,8 @@ pub fn setup_world_fn
   // mut meshes: ResMut< '_, Assets< Mesh > >,
   // mut materials: ResMut< '_, Assets< ColorMaterial > >,
   // mut images: ResMut< '_, Assets< Image > >,
-  mut asset_image_events : EventWriter< '_, AssetImageEvent >,
   playground : Res< '_, PlaygroundResource >,
-  asset_server : Res< '_, AssetServer >,
+  mut asset_server : TrackedAssetServer <'_>,
 )
 {
 
@@ -187,7 +185,7 @@ pub fn setup_world_fn
   // let color_material = ColorMaterial::from( AssetImage::Background.load( &mut asset_image_events, asset_server ) );
   // let transform = Transform::default().with_scale( d3::V::from( ( to_screen( playground.0.cbox.size ), 1.0 ) ) );
 
-  let texture = AssetImage::Background.load( &mut asset_image_events, asset_server );
+  let texture = AssetImage::Background.load( &mut asset_server );
   // if let Some( texture_body ) = images.get( &texture )
   // {
   //   dbg!( &texture_body.sampler_descriptor );

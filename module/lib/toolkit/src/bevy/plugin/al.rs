@@ -8,14 +8,26 @@ use bevy::
 use bevy::
     asset::{Asset, AssetPath};
 
+/// Namespace to include with asterisk.
+pub mod prelude
+{
+    pub use super::TrackedAssetServer;
+
+    pub use super::
+    {
+        AssetLoadQueueEmptyEvent, AssetLoadRequestsAddedEvent, FailedAssetLoadEvent,
+        FinishAssetLoadEvent, StartAssetLoadEvent,
+    };
+}
+
 ///
 /// To track assets loading process.
 ///
 #[derive( Debug, Default ) ]
-pub struct AssetLoadingPlugin;
+pub struct TrackedAssetLoadingPlugin;
 
 /// Alias for the plugin defined here.
-pub type Plugin = AssetLoadingPlugin;
+pub type Plugin = TrackedAssetLoadingPlugin;
 
 impl bevy::app::Plugin for Plugin
 {
@@ -78,7 +90,8 @@ pub struct AssetLoadRequestsAddedEvent;
 ///
 /// Extends standard asset server adding extra logic to track progress.
 ///
-#[derive(SystemParam)]
+#[allow( missing_debug_implementations )]
+#[derive( bevy::ecs::system::SystemParam )]
 pub struct TrackedAssetServer<'w>
 {
     asset_server : Res< 'w, AssetServer >,
@@ -86,11 +99,13 @@ pub struct TrackedAssetServer<'w>
 }
 
 impl<'w> TrackedAssetServer<'w> {
+  /// Get an underlying AssetServer
   pub fn asset_server( &self ) -> &AssetServer
   {
     &self.asset_server
   }
 
+  /// Load asset while tracking the loading process
   pub fn load_tracked< 'a, T : Asset, P : Into< AssetPath<'a> > >( &mut self, path : P ) -> Handle< T >
   {
     let asset = self.asset_server.load( path );
@@ -114,9 +129,9 @@ impl AssetLoadingQueue
   /// System to handle loading process of assets
   pub fn add_assets_to_queue
   (
-    mut ev_load_requests : EventReader< StartAssetLoadEvent >,
-    mut ev_added : EventWriter< AssetLoadRequestsAddedEvent >,
-    mut queue : ResMut< AssetLoadingQueue >,
+    mut ev_load_requests : EventReader< '_, '_, StartAssetLoadEvent >,
+    mut ev_added : EventWriter< '_, AssetLoadRequestsAddedEvent >,
+    mut queue : ResMut< '_, AssetLoadingQueue >,
   )
   {
     if !ev_load_requests.is_empty()
@@ -133,11 +148,11 @@ impl AssetLoadingQueue
   /// System to handle loading process of images and replace it with default if error will happen.
   pub fn process_assets_status
   (
-    asset_server : Res< AssetServer >,
-    mut queue : ResMut< AssetLoadingQueue >,
-    mut ev_finish : EventWriter< FinishAssetLoadEvent >,
-    mut ev_failed : EventWriter< FailedAssetLoadEvent >,
-    mut ev_empty : EventWriter< AssetLoadQueueEmptyEvent >,
+    asset_server : Res< '_, AssetServer >,
+    mut queue : ResMut< '_, AssetLoadingQueue >,
+    mut ev_finish : EventWriter< '_, FinishAssetLoadEvent >,
+    mut ev_failed : EventWriter< '_, FailedAssetLoadEvent >,
+    mut ev_empty : EventWriter< '_, AssetLoadQueueEmptyEvent >,
   )
   {
     use bevy::asset::LoadState;
@@ -172,13 +187,11 @@ impl AssetLoadingQueue
 #[cfg( test )]
 mod tests {
   use bevy::prelude::*;
-  use bevy::app::AppExit;
-  use bevy::log::LogPlugin;
 
   #[derive( Resource )]
   struct Timeout(std::time::Duration);
 
-  #[derive( Copy, Event )]
+  #[derive( Clone, Copy, Event )]
   enum WaitTimeEnded
   {
     Timeout,
@@ -187,10 +200,10 @@ mod tests {
 
   fn wait_for_load_with_timeout
   (
-    time : Res< Time >,
-    timeout : Res< Timeout >,
-    mut ev_queue_empty : EventReader< super::AssetLoadQueueEmptyEvent >,
-    mut ev_end_waiting : EventWriter< WaitTimeEnded >,
+    time : Res< '_, Time >,
+    timeout : Res< '_, Timeout >,
+    mut ev_queue_empty : EventReader< '_, '_, super::AssetLoadQueueEmptyEvent >,
+    mut ev_end_waiting : EventWriter< '_, WaitTimeEnded >,
   )
   {
     if time.startup().elapsed() > timeout.0
@@ -223,20 +236,23 @@ mod tests {
     new_requests : usize,
   }
 
+  #[derive( Debug, Default, Resource )]
+  struct ShouldExit( bool );
+
   fn count_events
   (
-    mut results : ResMut< Results >,
-    expected_results : ResMut< ExpectedResults >,
+    mut results : ResMut< '_, Results >,
+    expected_results : ResMut< '_, ExpectedResults >,
 
-    mut ev_start_load : EventReader< super::StartAssetLoadEvent >,
-    mut ev_finish_load : EventReader< super::FinishAssetLoadEvent >,
-    mut ev_fail_load : EventReader< super::FailedAssetLoadEvent >,
-    mut ev_queue_empty : EventReader< super::AssetLoadQueueEmptyEvent >,
-    mut ev_new_reguests : EventReader< super::AssetLoadRequestsAddedEvent >,
+    mut ev_start_load : EventReader< '_, '_, super::StartAssetLoadEvent >,
+    mut ev_finish_load : EventReader< '_, '_, super::FinishAssetLoadEvent >,
+    mut ev_fail_load : EventReader< '_, '_, super::FailedAssetLoadEvent >,
+    mut ev_queue_empty : EventReader< '_, '_, super::AssetLoadQueueEmptyEvent >,
+    mut ev_new_reguests : EventReader< '_, '_, super::AssetLoadRequestsAddedEvent >,
 
-    ev_end_waiting : EventReader< WaitTimeEnded >,
+    ev_end_waiting : EventReader< '_, '_, WaitTimeEnded >,
 
-    mut ev_exit : EventWriter< AppExit >,
+    mut exit: ResMut< '_, ShouldExit >,
   )
   {
     results.start += ev_start_load.iter().count();
@@ -245,8 +261,6 @@ mod tests {
     results.queue_empty += ev_queue_empty.iter().count();
     results.new_requests += ev_new_reguests.iter().count();
 
-    // println!("{results:?}");
-
     if !ev_end_waiting.is_empty()
     {
       assert!(results.start == expected_results.start);
@@ -254,15 +268,15 @@ mod tests {
       assert!(results.fail == expected_results.fail);
       assert!(results.new_requests == expected_results.new_requests);
 
-      ev_exit.send( AppExit );
+      exit.0 = true;
     }
   }
 
-  fn startup( mut asset_server : super::TrackedAssetServer )
+  fn startup( mut asset_server : super::TrackedAssetServer <'_> )
   {
-    asset_server.load_tracked::< Image, _ >( "fire_01.png" );
-    asset_server.load_tracked::< Image, _ >( "fire_02.png" );
-    asset_server.load_tracked::< Image, _ >( "fire_sprite_atlas.png" );
+    asset_server.load_tracked::< Image, _ >( "img/car_red_1.png" );
+    asset_server.load_tracked::< Image, _ >( "img/car_black_1.png" );
+    asset_server.load_tracked::< Image, _ >( "img/star.png" );
   }
 
   #[test]
@@ -271,8 +285,10 @@ mod tests {
     let mut app = App::new();
 
     app.add_plugins( MinimalPlugins )
-       .add_plugins( LogPlugin::default() )
-       .add_plugins( AssetPlugin::default() )
+       .add_plugins( AssetPlugin {
+         asset_folder : "../../../asset/".into(),
+        ..default()
+       })
        .add_plugins( ImagePlugin::default() )
        .add_plugins( super::TrackedAssetLoadingPlugin );
 
@@ -280,6 +296,7 @@ mod tests {
 
     app.init_resource::< Time >()
        .init_resource::< Results >()
+       .init_resource::< ShouldExit >()
        .insert_resource( Timeout( std::time::Duration::from_secs_f32( 10.0 ) ) )
        .insert_resource(
           ExpectedResults
@@ -300,11 +317,25 @@ mod tests {
       ),
     );
 
-    app.run();
+    app.set_runner(
+    |mut app|
+    {
+      while !app.ready() {}
 
-    loop {}
-    // loop {
-    //     app.update();
-    // }
+      app.finish();
+      app.cleanup();
+
+      loop
+      {
+        app.update();
+
+        if app.world.resource::< ShouldExit >().0
+        {
+          break;
+        }
+      }
+    });
+
+    app.run();
   }
 }
