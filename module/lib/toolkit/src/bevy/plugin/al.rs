@@ -6,18 +6,19 @@ use bevy::
     prelude::*
 ;
 use bevy::
-    asset::{Asset, AssetPath};
+    asset::{Asset, AssetPath}
+;
 
 /// Namespace to include with asterisk.
 pub mod prelude
 {
-    pub use super::TrackedAssetServer;
+  pub use super::TrackedAssetServer;
 
-    pub use super::
-    {
-        AssetLoadQueueEmptyEvent, AssetLoadRequestsAddedEvent, FailedAssetLoadEvent,
-        FinishAssetLoadEvent, StartAssetLoadEvent,
-    };
+  pub use super::
+  {
+    AssetLoadQueueEmptyEvent, AssetLoadRequestsAddedEvent, FailedAssetLoadEvent,
+    FinishAssetLoadEvent, StartAssetLoadEvent,
+  };
 }
 
 ///
@@ -36,19 +37,19 @@ impl bevy::app::Plugin for Plugin
     app.init_resource::<AssetLoadingQueue>();
 
     app.add_event::<StartAssetLoadEvent>()
-      .add_event::<FinishAssetLoadEvent>()
-      .add_event::<FailedAssetLoadEvent>()
-      .add_event::<AssetLoadRequestsAddedEvent>()
-      .add_event::<AssetLoadQueueEmptyEvent>();
+    .add_event::<FinishAssetLoadEvent>()
+    .add_event::<FailedAssetLoadEvent>()
+    .add_event::<AssetLoadRequestsAddedEvent>()
+    .add_event::<AssetLoadQueueEmptyEvent>();
 
     app.add_systems
+    (
+      Update,
       (
-        Update,
-          (
-            AssetLoadingQueue::add_assets_to_queue,
-            AssetLoadingQueue::process_assets_status,
-          ),
-      );
+        AssetLoadingQueue::add_assets_to_queue,
+        AssetLoadingQueue::process_assets_status,
+      ),
+    );
   }
 }
 
@@ -94,8 +95,8 @@ pub struct AssetLoadRequestsAddedEvent;
 #[derive( bevy::ecs::system::SystemParam )]
 pub struct TrackedAssetServer<'w>
 {
-    asset_server : Res< 'w, AssetServer >,
-    ev_asset_track : EventWriter< 'w, StartAssetLoadEvent >,
+  asset_server : Res< 'w, AssetServer >,
+  ev_asset_track : EventWriter< 'w, StartAssetLoadEvent >,
 }
 
 impl<'w> TrackedAssetServer<'w> {
@@ -110,7 +111,7 @@ impl<'w> TrackedAssetServer<'w> {
   {
     let asset = self.asset_server.load( path );
     self.ev_asset_track
-      .send( StartAssetLoadEvent( asset.clone_untyped() ) );
+    .send( StartAssetLoadEvent( asset.clone_untyped() ) );
     asset
   }
 }
@@ -161,21 +162,26 @@ impl AssetLoadingQueue
 
     queue
       .handles
-      .retain(|handle|
-        match asset_server.get_load_state( handle )
+      .retain
+      (
+        |handle|
         {
-          LoadState::NotLoaded | LoadState::Loading => true,
-          LoadState::Loaded | LoadState::Unloaded =>
+          match asset_server.get_load_state( handle )
           {
-            ev_finish.send( FinishAssetLoadEvent( handle.clone() ) );
-            false
+            LoadState::NotLoaded | LoadState::Loading => true,
+            LoadState::Loaded | LoadState::Unloaded =>
+            {
+              ev_finish.send( FinishAssetLoadEvent( handle.clone() ) );
+              false
+            }
+            LoadState::Failed =>
+            {
+              ev_failed.send( FailedAssetLoadEvent( handle.clone() ) );
+              false
+            }
           }
-          LoadState::Failed =>
-          {
-            ev_failed.send( FailedAssetLoadEvent( handle.clone() ) );
-            false
-          }
-        });
+        }
+      );
 
     if queue.handles.is_empty() && initial_queue_len != 0
     {

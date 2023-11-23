@@ -3,7 +3,7 @@ use bevy::prelude::*;
 use game_tookit::bevy::prelude::*;
 
 #[derive( Resource )]
-struct Timeout(std::time::Duration);
+struct Timeout( std::time::Duration );
 
 #[derive( Clone, Copy, Event )]
 enum WaitTimeEnded
@@ -66,7 +66,7 @@ fn count_events
 
   ev_end_waiting : EventReader< '_, '_, WaitTimeEnded >,
 
-  mut exit: ResMut< '_, ShouldExit >,
+  mut exit : ResMut< '_, ShouldExit >,
 )
 {
   results.start += ev_start_load.iter().count();
@@ -75,7 +75,7 @@ fn count_events
   results.queue_empty += ev_queue_empty.iter().count();
   results.new_requests += ev_new_reguests.iter().count();
 
-  println!("{:?}", results);
+  // println!("{:?}", results);
 
   if !ev_end_waiting.is_empty()
   {
@@ -101,30 +101,30 @@ fn count_produced_events()
   let mut app = App::new();
 
   app.add_plugins( MinimalPlugins )
-      .add_plugins( AssetPlugin {
-        ..default()
-      })
-      .add_plugins( ImagePlugin::default() )
-      .add_plugins( game_tookit::bevy::plugin::al::TrackedAssetLoadingPlugin );
+  .add_plugins( AssetPlugin::default() )
+  .add_plugins( ImagePlugin::default() )
+  .add_plugins( game_tookit::bevy::plugin::al::TrackedAssetLoadingPlugin );
 
   app.add_event::< WaitTimeEnded >();
 
   app.init_resource::< Time >()
-      .init_resource::< Results >()
-      .init_resource::< ShouldExit >()
-      .insert_resource( Timeout( std::time::Duration::from_secs_f32( 10.0 ) ) )
-      .insert_resource(
-        ExpectedResults
-        {
-          start : 3,
-          finish : 3,
-          fail : 0,
-          new_requests : 1,
-        }
-      );
+  .init_resource::< Results >()
+  .init_resource::< ShouldExit >()
+  .insert_resource( Timeout( std::time::Duration::from_secs_f32( 10.0 ) ) )
+  .insert_resource
+  (
+    ExpectedResults
+    {
+      start : 3,
+      finish : 3,
+      fail : 0,
+      new_requests : 1,
+    }
+  );
 
   app.add_systems( Startup, startup );
-  app.add_systems(
+  app.add_systems
+  (
     Update,
     (
       wait_for_load_with_timeout,
@@ -132,24 +132,26 @@ fn count_produced_events()
     ),
   );
 
-  app.set_runner(
-  |mut app|
-  {
-    while !app.ready() {}
-
-    app.finish();
-    app.cleanup();
-
-    loop
+  app.set_runner
+  (
+    |mut app|
     {
-      app.update();
+      while !app.ready() {}
 
-      if app.world.resource::< ShouldExit >().0
+      app.finish();
+      app.cleanup();
+
+      loop
       {
-        break;
+        app.update();
+
+        if app.world.resource::< ShouldExit >().0
+        {
+          break;
+        }
       }
     }
-  });
+  );
 
   app.run();
 }
