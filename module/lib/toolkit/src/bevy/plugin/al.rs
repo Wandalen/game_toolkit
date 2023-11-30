@@ -1,105 +1,88 @@
 //!
-//! To track assets loading process
+//! To track assets loading process.
 //!
-
 use bevy::
-    prelude::*
-;
-use bevy::
-    asset::{Asset, AssetPath}
-;
+{
+    asset::{ Asset, AssetEvents, AssetPath },
+    prelude::*,
+};
 
 /// Namespace to include with asterisk.
 pub mod prelude
 {
-  pub use super::TrackedAssetServer;
-
-  pub use super::
-  {
-    AssetLoadQueueEmptyEvent, AssetLoadRequestsAddedEvent, FailedAssetLoadEvent,
-    FinishAssetLoadEvent, StartAssetLoadEvent,
-  };
+    pub use super::TrackedAssetServer;
+    pub use super::{ AssetLoadEvent, TrackedAssetQueueEvent };
 }
 
 ///
 /// To track assets loading process.
 ///
-#[derive( Debug, Default ) ]
+#[derive( Debug, Default )]
 pub struct TrackedAssetLoadingPlugin;
 
 /// Alias for the plugin defined here.
 pub type Plugin = TrackedAssetLoadingPlugin;
 
-impl bevy::app::Plugin for Plugin
+impl bevy::app::Plugin for TrackedAssetLoadingPlugin
 {
   fn build( &self, app : &mut App )
   {
-    app.init_resource::<AssetLoadingQueue>();
+    app.init_resource::<TrackedAssetsQueue>();
 
-    app.add_event::<StartAssetLoadEvent>()
-    .add_event::<FinishAssetLoadEvent>()
-    .add_event::<FailedAssetLoadEvent>()
-    .add_event::<AssetLoadRequestsAddedEvent>()
-    .add_event::<AssetLoadQueueEmptyEvent>();
+    app.add_event::<AssetLoadEvent>()
+    .add_event::<TrackedAssetQueueEvent>();
 
     app.add_systems
     (
-      Update,
+      AssetEvents,
       (
-        AssetLoadingQueue::add_assets_to_queue,
-        AssetLoadingQueue::process_assets_status,
+        TrackedAssetsQueue::add_assets_to_queue,
+        TrackedAssetsQueue::process_assets_status
+        .after( TrackedAssetsQueue::add_assets_to_queue ),
       ),
     );
   }
 }
 
 ///
-/// Event to signal that loading is started.
+/// Event to signal asset load status.
 ///
-
-#[derive( Event, Debug ) ]
-pub struct StartAssetLoadEvent( HandleUntyped );
-
-///
-/// Event to signal that loading is finished.
-///
-
-#[derive( Event, Debug ) ]
-pub struct FinishAssetLoadEvent( HandleUntyped );
-
-///
-/// Event to signal that loading failed.
-///
-
-#[derive( Event, Debug )]
-pub struct FailedAssetLoadEvent( HandleUntyped );
+#[derive( Debug, Event, Clone, PartialEq, Eq )]
+pub enum AssetLoadEvent
+{
+  /// Tracked asset load started.
+  Started(HandleUntyped),
+  /// Tracked asset load finished succesfully.
+  Finished(HandleUntyped),
+  /// Tracked asset load failed.
+  Failed(HandleUntyped),
+}
 
 ///
-/// Event to signal that all requested assets are loaded.
+/// Event to signal global tracked assets queue status.
 ///
-
-#[derive( Event, Debug )]
-pub struct AssetLoadQueueEmptyEvent;
-
-///
-/// Event to signal that new asset load requests were added.
-///
-
-#[derive( Event, Debug )]
-pub struct AssetLoadRequestsAddedEvent;
+#[derive( Debug, Event, Clone, Copy, PartialEq, Eq )]
+pub enum TrackedAssetQueueEvent
+{
+  /// New tracked requests for asset loading were added.
+  ResuestsAdded,
+  /// All tracked requests for asset loading were processed.
+  RequestProcessed,
+}
 
 ///
 /// Extends standard asset server adding extra logic to track progress.
 ///
 #[allow( missing_debug_implementations )]
 #[derive( bevy::ecs::system::SystemParam )]
-pub struct TrackedAssetServer<'w>
+pub struct TrackedAssetServer< 'w >
 {
-  asset_server : Res< 'w, AssetServer >,
-  ev_asset_track : EventWriter< 'w, StartAssetLoadEvent >,
+  asset_server: Res< 'w, AssetServer >,
+  ev_asset_track: EventWriter< 'w, AssetLoadEvent >,
 }
 
-impl<'w> TrackedAssetServer<'w> {
+impl< 'w > TrackedAssetServer< 'w >
+{
   /// Get an underlying AssetServer
   pub fn asset_server( &self ) -> &AssetServer
   {
@@ -107,42 +90,50 @@ impl<'w> TrackedAssetServer<'w> {
   }
 
   /// Load asset while tracking the loading process
-  pub fn load_tracked< 'a, T : Asset, P : Into< AssetPath<'a> > >( &mut self, path : P ) -> Handle< T >
+  pub fn load_tracked< 'a, T : Asset, P : Into< AssetPath< 'a > > >( &mut self, path : P ) -> Handle<T>
   {
-    let asset = self.asset_server.load( path );
+    let asset = self.asset_server.load(path);
     self.ev_asset_track
-    .send( StartAssetLoadEvent( asset.clone_untyped() ) );
+    .send(AssetLoadEvent::Started(asset.clone_untyped()));
+
     asset
   }
 }
 
 ///
-/// Queue of tracked assets waiting to be loaded
+/// Storage of tracked assets waiting to be loaded
 ///
-#[derive( Debug, Default, Resource ) ]
-pub struct AssetLoadingQueue
+#[derive( Debug, Default, Resource )]
+pub struct TrackedAssetsQueue
 {
-  handles : Vec< HandleUntyped >,
+  handles : bevy::utils::HashSet< HandleUntyped >,
 }
 
-impl AssetLoadingQueue
+impl TrackedAssetsQueue
 {
   /// System to handle loading process of assets
   pub fn add_assets_to_queue
   (
-    mut ev_load_requests : EventReader< '_, '_, StartAssetLoadEvent >,
-    mut ev_added : EventWriter< '_, AssetLoadRequestsAddedEvent >,
-    mut queue : ResMut< '_, AssetLoadingQueue >,
+    mut ev_asset : EventReader< '_, '_, AssetLoadEvent >,
+    mut ev_queue : EventWriter< '_, TrackedAssetQueueEvent >,
+    mut queue : ResMut< '_, TrackedAssetsQueue >,
   )
   {
-    if !ev_load_requests.is_empty()
+    let queue_is_empty = queue.handles.is_empty();
+    let mut new_added = false;
+
+    for event in ev_asset.iter()
     {
-      ev_added.send( AssetLoadRequestsAddedEvent );
+      if let AssetLoadEvent::Started( handle ) = event
+      {
+        new_added = true;
+        queue.handles.insert( handle.clone() );
+      }
     }
 
-    for event in ev_load_requests.iter()
+    if new_added && queue_is_empty
     {
-      queue.handles.push( event.0.clone() );
+      ev_queue.send( TrackedAssetQueueEvent::ResuestsAdded );
     }
   }
 
@@ -150,10 +141,10 @@ impl AssetLoadingQueue
   pub fn process_assets_status
   (
     asset_server : Res< '_, AssetServer >,
-    mut queue : ResMut< '_, AssetLoadingQueue >,
-    mut ev_finish : EventWriter< '_, FinishAssetLoadEvent >,
-    mut ev_failed : EventWriter< '_, FailedAssetLoadEvent >,
-    mut ev_empty : EventWriter< '_, AssetLoadQueueEmptyEvent >,
+    mut queue : ResMut< '_, TrackedAssetsQueue >,
+
+    mut ev_asset : EventWriter< '_, AssetLoadEvent >,
+    mut ev_queue : EventWriter< '_, TrackedAssetQueueEvent >,
   )
   {
     use bevy::asset::LoadState;
@@ -161,31 +152,29 @@ impl AssetLoadingQueue
     let initial_queue_len = queue.handles.len();
 
     queue
-      .handles
-      .retain
-      (
-        |handle|
+    .handles
+    .retain
+    (
+      |handle|
+        match asset_server.get_load_state( handle )
         {
-          match asset_server.get_load_state( handle )
+          LoadState::NotLoaded | LoadState::Loading => true,
+          LoadState::Loaded | LoadState::Unloaded =>
           {
-            LoadState::NotLoaded | LoadState::Loading => true,
-            LoadState::Loaded | LoadState::Unloaded =>
-            {
-              ev_finish.send( FinishAssetLoadEvent( handle.clone() ) );
-              false
-            }
-            LoadState::Failed =>
-            {
-              ev_failed.send( FailedAssetLoadEvent( handle.clone() ) );
-              false
-            }
+            ev_asset.send( AssetLoadEvent::Finished( handle.clone() ) );
+            false
+          }
+          LoadState::Failed =>
+          {
+            ev_asset.send( AssetLoadEvent::Failed( handle.clone() ) );
+            false
           }
         }
-      );
+    );
 
     if queue.handles.is_empty() && initial_queue_len != 0
     {
-      ev_empty.send( AssetLoadQueueEmptyEvent );
+      ev_queue.send( TrackedAssetQueueEvent::RequestProcessed );
     }
   }
 }

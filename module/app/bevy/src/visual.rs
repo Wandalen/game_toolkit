@@ -84,9 +84,7 @@ impl MovableComponent
   (
     self,
     commands : &'a mut Commands< 'w, 's >,
-    // images : &'_ mut ResMut< '_, '_, Assets< Image > >,
-    mut asset_server : &mut TrackedAssetServer <'_>,
-    // loading : &'_ mut ResMut< '_, AssetLoadingResource >,
+    asset_server : &mut TrackedAssetServer <'_>,
     // mut server : AssetServerExt,
   ) -> EntityCommands< 'w, 's, 'a >
   {
@@ -101,13 +99,7 @@ impl MovableComponent
   (
     self,
     commands : &'a mut Commands< 'w, 's >,
-    // asset_image_events : &'_ mut EventWriter< '_, AssetImageEvent >,
-    // images : &'_ mut ResMut< '_, '_, Assets< Image > >,
-    // mut server : AssetServerExt,
     mut asset_server : TrackedAssetServer <'_>,
-    // loading : &'_ mut ResMut< '_, AssetLoadingResource >,
-    // xxx : use
-    // loading : ResMut< '_, AssetLoadingResource >,
   ) -> EntityCommands< 'w, 's, 'a >
   {
     let texture = AssetImage::Pawn( Pawn::Player ).load( &mut asset_server );
@@ -138,9 +130,7 @@ pub fn delayed_setup_world_fn
   // mut meshes: ResMut< '_, Assets< Mesh > >,
   // mut materials: ResMut< '_, Assets< ColorMaterial > >,
   mut images: ResMut< '_, Assets< Image > >,
-  // mut asset_image_events : EventWriter< '_, AssetImageEvent >,
   // playground : Res< '_, PlaygroundResource >,
-  // asset_server : Res< '_, AssetServer >,
   images_query : Query< '_, '_, ( Entity, &Handle< Image >, ), ( With< PlaygroundComponent >, With< NotReadyComponent > ) >,
   mut image_events : EventReader< '_, '_, AssetEvent< Image > >,
 )
