@@ -1,272 +1,180 @@
 //!
-//! To track assets loading process and handle errors.
+//! To track assets loading process.
 //!
-
-use bevy::prelude::*;
-const DefaultImagePath : &str = "./img/pattern/bw/pattern_48.png";
+use bevy::
+{
+    asset::{ Asset, AssetEvents, AssetPath },
+    prelude::*,
+};
 
 /// Namespace to include with asterisk.
 pub mod prelude
 {
-  pub use super::AssetServerExt;
+    pub use super::TrackedAssetServer;
+    pub use super::{ AssetLoadEvent, TrackedAssetQueueEvent };
 }
 
 ///
-/// To track assets loading process and handle errors.
+/// To track assets loading process.
 ///
+#[derive( Debug, Default )]
+pub struct TrackedAssetLoadingPlugin;
 
-# [derive( Debug ) ]
-pub struct AssetLoadingPlugin
-{
-  default_image_path : String,
-}
 /// Alias for the plugin defined here.
-pub type Plugin = AssetLoadingPlugin;
-impl bevy::app::Plugin for Plugin
+pub type Plugin = TrackedAssetLoadingPlugin;
+
+impl bevy::app::Plugin for TrackedAssetLoadingPlugin
 {
   fn build( &self, app : &mut App )
   {
-    app
-    .insert_resource( AssetLoadingResource { default_image_path : self.default_image_path.clone(), ..default() } )
-    .add_event::< AssetImageEvent >()
-    .add_systems( Update, AssetLoadingResource::assets_loading_start_fn )
-    .add_systems( Update, AssetLoadingResource::assets_loading_handler_fn )
-    ;
+    app.init_resource::<TrackedAssetsQueue>();
+
+    app.add_event::<AssetLoadEvent>()
+    .add_event::<TrackedAssetQueueEvent>();
+
+    app.add_systems
+    (
+      AssetEvents,
+      (
+        TrackedAssetsQueue::add_assets_to_queue,
+        TrackedAssetsQueue::process_assets_status
+        .after( TrackedAssetsQueue::add_assets_to_queue ),
+      ),
+    );
   }
 }
 
-impl Default for AssetLoadingPlugin
+///
+/// Event to signal asset load status.
+///
+#[derive( Debug, Event, Clone, PartialEq, Eq )]
+pub enum AssetLoadEvent
 {
-  fn default() -> Self
-  {
-    let default_image_path = DefaultImagePath.into();
-    Self { default_image_path }
-  }
+  /// Tracked asset load started.
+  Started(HandleUntyped),
+  /// Tracked asset load finished succesfully.
+  Finished(HandleUntyped),
+  /// Tracked asset load failed.
+  Failed(HandleUntyped),
 }
 
 ///
-/// To track assets loading process and handle errors.
+/// Event to signal global tracked assets queue status.
 ///
-
-# [derive( Resource, Debug ) ]
-pub struct AssetLoadingResource
+#[derive( Debug, Event, Clone, Copy, PartialEq, Eq )]
+pub enum TrackedAssetQueueEvent
 {
-  /// Path to the image to use as a fallback in case any images fail to load.
-  pub default_image_path : String,
-  /// Keeps track of a list of images that are currently being loaded.
-  /// Once the loading process is complete, the image is removed from the list.
-  pub images : Vec< Handle< Image > >,
-}
-
-impl AssetLoadingResource
-{
-
-  /// Constructor accepting only path to default image to load if no image is found.
-  pub fn new( default_image_path : String ) -> Self
-  {
-    let images = Default::default();
-    Self { default_image_path, images }
-  }
-
-  /// System to handle loading process of images and replace it with default if error will happen.
-  pub fn assets_loading_start_fn
-  (
-    mut images: EventReader< '_, '_, AssetImageEvent >,
-    mut loading : ResMut< '_, AssetLoadingResource >
-  )
-  {
-    for event in images.iter()
-    {
-      loading.images.push( event.0.clone() );
-    }
-  }
-
-  /// System to handle loading process of images and replace it with default if error will happen.
-  pub fn assets_loading_handler_fn
-  (
-    mut commands : Commands< '_, '_ >,
-    // mut images : Query< '_, '_, Assets< Image > >,
-    mut images : Query< '_, '_, ( Entity, &Handle< Image > ) >,
-    mut color_materials : Query< '_, '_, ( Entity, &Handle< ColorMaterial >, ) >,
-    mut materials: ResMut< '_, Assets< ColorMaterial > >,
-    asset_server : Res< '_, AssetServer >,
-    mut loading : ResMut< '_, AssetLoadingResource >,
-  )
-  {
-    use bevy::asset::{ LoadState, HandleId };
-
-    // if loading.images.len() > 0
-    // {
-    //   println!( "images_query : {}", images.iter().count() );
-    //   println!( "color_materials_query : {}", color_materials.iter().count() );
-    // }
-
-    // asset_server.get_group_load_state()
-    let mut to_remove = vec![];
-    for( k, handle ) in loading.images.iter().enumerate()
-    {
-      match handle.id()
-      {
-        HandleId::AssetPathId( id ) => match asset_server.get_load_state( id )
-        {
-          LoadState::Loaded =>
-          {
-            to_remove.push( k );
-            // println!( "Loaded {:?}", asset_server.get_handle_path( id ) );
-          }
-          LoadState::Unloaded =>
-          {
-            to_remove.push( k );
-            println!( "Unloaded {:?}", asset_server.get_handle_path( id ) );
-          }
-          LoadState::Failed =>
-          {
-            warn!
-            (
-              "Failed to load {:?}\nReplacing by {:?}",
-              asset_server.get_handle_path( id ),
-              &loading.default_image_path,
-            );
-            let new_image : Handle< Image > = asset_server.load( &loading.default_image_path );
-            for( entity, material_id, ) in color_materials.iter_mut()
-            {
-              let material = materials.get_mut( &material_id ).unwrap();
-              let handle2 = material.texture.as_ref().unwrap();
-              if handle2.id() == handle.id()
-              {
-                // warn!( "Replaced {:?}", asset_server.get_handle_path( handle2 ) );
-                material.texture = Some( handle2.clone() );
-                commands.entity( entity ).insert( materials.add( ColorMaterial::from( new_image.clone() ) ) );
-              }
-            }
-            for ( entity, image, ) in images.iter_mut()
-            {
-              // println!( "{:?} != {:?}", image.id(), handle.id() );
-              if image.id() == handle.id()
-              {
-                commands.entity( entity ).insert( new_image.clone() );
-                // warn!( "Replaced {:?}", asset_server.get_handle_path( id ) );
-              }
-            }
-            // images.set( handle, new_image );
-            to_remove.push( k );
-          },
-          LoadState::Loading | LoadState::NotLoaded =>
-          {
-            println!( "Loading {:?}", asset_server.get_handle_path( id ) );
-          }
-          // state @ _ => info!( "{id:?} : {state:?}" ),
-        },
-        HandleId::Id( _, _ ) => (),
-        // _ => (),
-      }
-    }
-
-    for &e in to_remove.iter().rev()
-    {
-      loading.images.remove( e );
-    }
-
-
-  }
-
+  /// New tracked requests for asset loading were added.
+  ResuestsAdded,
+  /// All tracked requests for asset loading were processed.
+  RequestProcessed,
 }
 
 ///
-/// Event to signal that loading is started.
+/// Extends standard asset server adding extra logic to track progress.
 ///
-#[ derive( Event, Debug ) ]
-pub struct AssetImageEvent( Handle< Image > );
-
-///
-/// Extend standard asset server adding extra logic to track progress and handle errors.
-///
-pub trait AssetServerExt
+#[allow( missing_debug_implementations )]
+#[derive( bevy::ecs::system::SystemParam )]
+pub struct TrackedAssetServer< 'w >
 {
-  /// Load image and store it into storage of loading processes to track and handle error if any.
-  fn image_load
-  (
-    &self,
-    events : &'_ mut EventWriter< '_, AssetImageEvent >,
-    path : &'_ str,
-  ) -> Handle< Image >;
+  asset_server: Res< 'w, AssetServer >,
+  ev_asset_track: EventWriter< 'w, AssetLoadEvent >,
 }
 
-impl AssetServerExt for AssetServer
+impl< 'w > TrackedAssetServer< 'w >
 {
-  fn image_load
-  (
-    &self,
-    events : &'_ mut EventWriter< '_, AssetImageEvent >,
-    path : &'_ str,
-  ) -> Handle< Image >
+  /// Get an underlying AssetServer
+  pub fn asset_server( &self ) -> &AssetServer
   {
-    let asset = self.load( path );
-    // self.images.push( asset.clone() );
-    events.send( AssetImageEvent( asset.clone() ) );
+    &self.asset_server
+  }
+
+  /// Load asset while tracking the loading process
+  pub fn load_tracked< 'a, T : Asset, P : Into< AssetPath< 'a > > >( &mut self, path : P ) -> Handle<T>
+  {
+    let asset = self.asset_server.load(path);
+    self.ev_asset_track
+    .send(AssetLoadEvent::Started(asset.clone_untyped()));
+
     asset
   }
 }
 
-impl Default for AssetLoadingResource
+///
+/// Storage of tracked assets waiting to be loaded
+///
+#[derive( Debug, Default, Resource )]
+pub struct TrackedAssetsQueue
 {
-  fn default() -> Self
-  {
-    let default_image_path = DefaultImagePath.into();
-    let images = Default::default();
-    Self { default_image_path, images }
-  }
+  handles : bevy::utils::HashSet< HandleUntyped >,
 }
 
-// ///
-// /// Extended asset server.
-// ///
-//
-// pub struct AssetServerExt< 'a, 'b, 'c >
-// {
-//   pub server : Res< 'a, AssetServer >,
-//   pub loading : &'b mut ResMut< 'c, AssetLoadingResource >,
-// }
-//
-// // impl< 'a, 'b, 'c > Clone for AssetServerExt< 'a, 'b, 'c >
-// // {
-// //   fn clone( &self ) -> Self
-// //   {
-// //     AssetServerExt::new( Res::clone( &self.server ), self.loading )
-// //   }
-// // }
-//
-// impl< 'a, 'b, 'c > AssetServerExt< 'a, 'b, 'c >
-// {
-//   /// Constructor accepting only path to default image to load if no image is found.
-//   pub fn new
-//   (
-//     server : Res< 'a, AssetServer >,
-//     loading : &'b mut ResMut< 'c, AssetLoadingResource >,
-//   ) -> Self
-//   {
-//     Self { loading, server }
-//   }
-//
-//   /// Load image string it into storage of loading processes to track and handle error if any.
-//   pub fn image_load
-//   (
-//     &mut self,
-//     path : &'_ str,
-//   ) -> Handle< Image >
-//   {
-//     let server = Res::clone( &self.server );
-//     self.loading.image_load( server, path )
-//   }
-//
-// }
-//
-// use std::ops::Deref;
-// impl< 'a, 'b, 'c > Deref for AssetServerExt< 'a, 'b, 'c >
-// {
-//   type Target = Res< 'a, AssetServer >;
-//   fn deref( &self ) -> &Self::Target
-//   {
-//       &self.server
-//   }
-// }
+impl TrackedAssetsQueue
+{
+  /// System to handle loading process of assets
+  pub fn add_assets_to_queue
+  (
+    mut ev_asset : EventReader< '_, '_, AssetLoadEvent >,
+    mut ev_queue : EventWriter< '_, TrackedAssetQueueEvent >,
+    mut queue : ResMut< '_, TrackedAssetsQueue >,
+  )
+  {
+    let queue_is_empty = queue.handles.is_empty();
+    let mut new_added = false;
+
+    for event in ev_asset.iter()
+    {
+      if let AssetLoadEvent::Started( handle ) = event
+      {
+        new_added = true;
+        queue.handles.insert( handle.clone() );
+      }
+    }
+
+    if new_added && queue_is_empty
+    {
+      ev_queue.send( TrackedAssetQueueEvent::ResuestsAdded );
+    }
+  }
+
+  /// System to handle loading process of images and replace it with default if error will happen.
+  pub fn process_assets_status
+  (
+    asset_server : Res< '_, AssetServer >,
+    mut queue : ResMut< '_, TrackedAssetsQueue >,
+
+    mut ev_asset : EventWriter< '_, AssetLoadEvent >,
+    mut ev_queue : EventWriter< '_, TrackedAssetQueueEvent >,
+  )
+  {
+    use bevy::asset::LoadState;
+
+    let initial_queue_len = queue.handles.len();
+
+    queue
+    .handles
+    .retain
+    (
+      |handle|
+        match asset_server.get_load_state( handle )
+        {
+          LoadState::NotLoaded | LoadState::Loading => true,
+          LoadState::Loaded | LoadState::Unloaded =>
+          {
+            ev_asset.send( AssetLoadEvent::Finished( handle.clone() ) );
+            false
+          }
+          LoadState::Failed =>
+          {
+            ev_asset.send( AssetLoadEvent::Failed( handle.clone() ) );
+            false
+          }
+        }
+    );
+
+    if queue.handles.is_empty() && initial_queue_len != 0
+    {
+      ev_queue.send( TrackedAssetQueueEvent::RequestProcessed );
+    }
+  }
+}

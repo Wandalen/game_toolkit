@@ -7,7 +7,7 @@ use crate::*;
 
 use kit::sealed;
 use mechanics::{ AssetImage, Pawn };
-pub use plugin::al::{ AssetLoadingResource, AssetServerExt, AssetImageEvent };
+pub use plugin::al::prelude::TrackedAssetServer;
 
 /// Namespace to include with asterisk.
 pub mod prelude
@@ -16,7 +16,7 @@ pub mod prelude
   pub use bevy::prelude::*;
   pub use super::plugin::al::prelude::*;
   pub use super::AssetImageExt;
-  pub use super::AssetServerExt;
+  pub use super::TrackedAssetServer;
 }
 
 ///
@@ -32,8 +32,7 @@ pub trait AssetImageExt
   fn load
   (
     &self,
-    asset_image_events: &'_ mut EventWriter< '_, AssetImageEvent >,
-    asset_server : Res< '_, AssetServer >,
+    asset_server : &mut TrackedAssetServer <'_>,
   ) -> Handle< Image >;
 }
 
@@ -57,8 +56,7 @@ impl AssetImageExt for AssetImage
   fn load
   (
     &self,
-    asset_image_events: &'_ mut EventWriter< '_, AssetImageEvent >,
-    asset_server : Res< '_, AssetServer >,
+    asset_server : &mut TrackedAssetServer <'_>,
   ) -> Handle< Image >
   {
     let path = match self
@@ -72,6 +70,6 @@ impl AssetImageExt for AssetImage
         "img/pattern/bw/pattern_48.png"
       },
     };
-    asset_server.image_load( asset_image_events, path )
+    asset_server.load_tracked( path )
   }
 }

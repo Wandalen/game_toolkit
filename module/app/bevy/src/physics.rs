@@ -9,7 +9,6 @@ use crate::*;
 
 // use math::prelude::*;
 // use math::Cbox;
-use assets::AssetImageEvent;
 use mechanics::Playground;
 use sound::SoundEvent;
 pub use mechanics::movable::*;
@@ -96,27 +95,25 @@ pub fn setup_world_fn
 pub fn setup_movable_player_fn
 (
   mut commands : Commands< '_, '_ >,
-  mut asset_image_events : EventWriter< '_, AssetImageEvent >,
-  asset_server : Res< '_, AssetServer >,
+  asset_server : TrackedAssetServer <'_>,
 )
 {
   let movable = MovableComponent( Movable::PawnPlayer() );
-  movable.visual_pawn_player( &mut commands, &mut asset_image_events, asset_server );
+  movable.visual_pawn_player( &mut commands, asset_server );
 }
 
 /// Setup NPCs.
 pub fn setup_movable_npcs_fn
 (
   mut commands : Commands< '_, '_ >,
-  mut asset_image_events : EventWriter< '_, AssetImageEvent >,
-  asset_server : Res< '_, AssetServer >,
+  mut asset_server : TrackedAssetServer <'_>,
   playground : Res< '_, PlaygroundResource >,
 )
 {
   for _ in 0..mechanics::Game::nNpc
   {
     let movable = MovableComponent( Movable::PawnNpc( playground.0.cbox ) );
-    movable.visual_pawn_npc( &mut commands, &mut asset_image_events, Res::clone( &asset_server ) );
+    movable.visual_pawn_npc( &mut commands, &mut asset_server );
   }
 }
 
